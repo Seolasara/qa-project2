@@ -24,7 +24,6 @@ class TestNetworkInterfaceCRUD:
         res_data = response.json()
         assert isinstance(res_data, list)
         TestNetworkInterfaceCRUD.initial_count = len(res_data)
-        print(f"\n[기존 개수 저장] {TestNetworkInterfaceCRUD.initial_count}개")
 
     def test_NW002_interface_empty_list(self, api_headers):
         url = f"{base_url}/network_interface?skip=0&count=20"
@@ -33,7 +32,7 @@ class TestNetworkInterfaceCRUD:
         assert response.status_code == 200
 
         res_data = response.json()
-        assert isinstance(res_data, list), f"응답이 리스트 형식이 아닙니다: {res_data}"
+        assert isinstance(res_data, list), f"⛔ [FAIL] 응답이 리스트 형식이 아닙니다: {res_data},- 상태 코드: {response.status_code}"
 
     def test_NW003_interface_create(self, api_headers):
         url = f"{base_url}/network_interface"
@@ -47,15 +46,13 @@ class TestNetworkInterfaceCRUD:
         }
 
         response = requests.post(url, headers=api_headers, json=payload)
-        assert response.status_code == 200, f"생성 실패: {response.text}"
+        assert response.status_code == 200, f"⛔ [FAIL] 네트워크 인터페이스 생성 실패 - 상태 코드: {response.status_code}"
 
         res_data = response.json()
 
         assert "id" in res_data, f"ID가 응답에 없습니다: {res_data}"
         TestNetworkInterfaceCRUD.created_id = res_data["id"]
-        print(f"[리소스 생성 성공] ID: {TestNetworkInterfaceCRUD.created_id}, 이름: {unique_name}")
         TestNetworkInterfaceCRUD.last_payload = payload
-        print(f"[성공] 리소스 생성 완료 (ID: {TestNetworkInterfaceCRUD.created_id})")
 
     def test_NW003_01_verify_after_create(self, api_headers):
         """생성 후 실제로 개수가 늘어났는지 확인"""
@@ -68,8 +65,7 @@ class TestNetworkInterfaceCRUD:
         assert current_count == TestNetworkInterfaceCRUD.initial_count + 1
 
         found = any(item['id'] == TestNetworkInterfaceCRUD.created_id for item in res_data)
-        assert found, "생성된 ID가 전체 목록에 존재하지 않습니다."
-        print(f"[검증 완료] 현재 개수 {current_count}개, 생성된 ID 포함 확인됨.")
+        assert found, "⛔ [FAIL] 생성된 ID가 전체 목록에 존재하지 않습니다."
 
     @pytest.mark.xfail(reason="현재 서버에서 중복 이름 생성을 허용하고 있음 ( 409 기대)")
     def test_NW004_duplicate_create_fail(self, api_headers):
@@ -86,7 +82,7 @@ class TestNetworkInterfaceCRUD:
             json=TestNetworkInterfaceCRUD.last_payload
         )
 
-        assert response.status_code == 409, f"중복 생성인데 {response.status_code} 응답."
+        assert response.status_code == 409, f"⛔ [FAIL] 409와 다른 상태 코드: {response.status_code}"
 
     @pytest.mark.xfail(reason="포스트맨은 422이나 현재 409 반환됨")
     def test_NW_005_ERR_create_with_invalid_reference_ids(self, api_headers):
@@ -103,8 +99,7 @@ class TestNetworkInterfaceCRUD:
         }
 
         response = requests.post(url, headers=api_headers, json=payload)
-        assert response.status_code in [422,409,] ,f"가짜 ID로 생성 시도했으나 {response.status_code}가 반환."
-        print(f"\n[성공] 잘못된 참조 ID 생성 차단 확인 (응답 코드: {response.status_code})")
+        assert response.status_code == 422 or response.status_code == 409, f"⛔ [FAIL] 409와 다른 상태 코드: {response.status_code}"
 
     def test_NW006_interface_get(self, api_headers):
         """단건 조회"""
@@ -116,8 +111,7 @@ class TestNetworkInterfaceCRUD:
         assert response.status_code == 200, f"단건 조회 실패: {response.text}"
 
         res_data = response.json()
-        assert res_data["id"] == TestNetworkInterfaceCRUD.created_id, "조회된 ID가 생성된 ID와 일치하지 않습니다."
-        print(f"[성공] 단건 조회 완료 (ID: {TestNetworkInterfaceCRUD.created_id})")
+        assert res_data["id"] == TestNetworkInterfaceCRUD.created_id, "⛔조회된 ID가 생성된 ID와 일치하지 않습니다."
 
     @pytest.mark.xfail(reason="포스트맨은 422이나 현재 409 반환됨")
     def test_NW_007_ERR_get_non_existent_id(self, api_headers):
@@ -125,8 +119,7 @@ class TestNetworkInterfaceCRUD:
         non_existent_id = str(uuid.uuid4())
         url = f"{base_url}/network_interface/{non_existent_id}"
         response = requests.get(url, headers=api_headers)
-        assert response.status_code in [422,409], f"존재하지 않는 ID 조회 시도했으나 {response.status_code}가 반환."
-        print(f"\n[성공] 존재하지 않는 ID 조회 차단 확인 (응답 코드: {response.status_code})")
+        assert response.status_code == 422, f"⛔ [FAIL] 422와 다른 상태 코드: {response.status_code}"
 
     def test_NW008_interface_patch(self, api_headers):
         """수정 테스트"""
@@ -140,20 +133,19 @@ class TestNetworkInterfaceCRUD:
         }
 
         response = requests.patch(url, headers=api_headers, json=payload)
-        assert response.status_code == 200, f"수정 실패: {response.text}"
+        assert response.status_code == 200, f"⛔ [FAIL] 네트워크 인터페이스 수정 실패 - 상태 코드: {response.status_code}"
 
         res_data = response.json()
         if "name" in res_data:
             # 서버가 수정된 데이터를 즉시 반환하는 경우
-            assert res_data["name"] == new_name, f"이름 수정 검증 실패: {res_data['name']} != {new_name}"
+            assert res_data["name"] == new_name, f"⛔ [FAIL] 이름 수정 검증 실패: {res_data['name']} != {new_name}"
         else:
             # 서버가 응답으로 ID만 주는 경우, GET으로 다시 조회해서 확인 
             get_response = requests.get(url, headers=api_headers)
             get_data = get_response.json()
-            assert get_data.get("name") == new_name, "조회 결과 이름이 수정되지 않았습니다."
+            assert get_data.get("name") == new_name, "⛔ [FAIL] 조회 결과 이름이 수정되지 않았습니다."
         
         TestNetworkInterfaceCRUD.last_updated_name = new_name
-        print(f"[성공] 수정 완료 (ID: {TestNetworkInterfaceCRUD.created_id}, 새 이름: {new_name})")
 
     def test_NW_009_DUP_patch_same_name(self, api_headers):
         """[Positive/Negative] 이미 설정된 이름과 동일한 이름으로 다시 수정 시도"""
@@ -167,14 +159,9 @@ class TestNetworkInterfaceCRUD:
             "name": current_name 
         }
 
-        # 2. 동일한 이름으로 PATCH 요청
         response = requests.patch(url, headers=api_headers, json=payload)
 
-        # 3. [검증] 
-        # 시나리오 A: 변화가 없어도 성공으로 간주 (표준적인 PATCH) -> 200 OK
-        # 시나리오 B: 중복 데이터로 간주하여 차단 (엄격한 검증) -> 409 Conflict
-        
-        assert response.status_code == 200, f"동일 이름으로 수정 시도 시 에러 발생: {response.text}"
+        assert response.status_code == 200, f"⛔ [FAIL] 동일 이름으로 수정 시도 시 에러 발생: {response.text}"
         
         print(f"[성공] 동일 이름 재수정 시도 결과: {response.status_code}")
     
@@ -190,7 +177,6 @@ class TestNetworkInterfaceCRUD:
 
         response = requests.patch(url, headers=api_headers, json=payload)
         
-        print(f"[정보] 불변 필드 수정 시도 결과 코드: {response.status_code}")
 
     @allure.story("리소스 수정 및 중복 검증") # 시나리오 구분
     @allure.title("다른 리소스와 이름 중복 수정 시 차단 확인") # 리포트에 표시될 제목
@@ -210,7 +196,6 @@ class TestNetworkInterfaceCRUD:
         
         resp_b = requests.post(f"{base_url}/network_interface", headers=api_headers, json=payload_b)
         target_b_id = resp_b.json().get("id")
-        print(f"\n[임시 B 생성] ID: {target_b_id}, 이름: {target_b_name}")
 
         try:
             url_a = f"{base_url}/network_interface/{TestNetworkInterfaceCRUD.created_id}"            
@@ -219,23 +204,13 @@ class TestNetworkInterfaceCRUD:
             # 서버 상태 재조회
             actual_a_name = requests.get(url_a, headers=api_headers).json().get("name")
 
-            if response.status_code == 200:
-                print(f"\n🚨 [데이터 오염 확정] ID 불일치 현상 발생!")
-                print(f"👉 수정 요청 대상 ID: {TestNetworkInterfaceCRUD.created_id}, 이름 결과: {actual_a_name}")
-                print(f"👉 임시 리소스 B ID: {target_b_id}, 이름: {target_b_name}")
-
-            # 기획상 409가 와야 하므로 assert 실행 (xfail에 의해 실패로 기록됨)
-            assert response.status_code == 409, f"중복 이름 수정 허용됨 (코드: {response.status_code})"
+            assert response.status_code == 409, f"⛔ [FAIL]중복 이름 수정 허용됨 (코드: {response.status_code})"
 
         finally:
             if target_b_id:
                 requests.delete(f"{base_url}/network_interface/{target_b_id}", headers=api_headers)
                 verify_del = requests.get(f"{base_url}/network_interface/{target_b_id}", headers=api_headers)
                 
-                if verify_del.status_code in [404, 422, 409]:
-                    print(f"[정리] 리소스 {target_b_id} 삭제 완료")
-                else:
-                    print(f"[경고!!!] 리소스 {target_b_id}가 삭제 후에도 조회됨 (서버 고스트 버그)")
 
     def test_NW012_interface_delete(self, api_headers):
         """[최종 정리] 생성된 리소스 삭제 및 ID 일치 여부 최종 확인"""
@@ -243,19 +218,38 @@ class TestNetworkInterfaceCRUD:
             pytest.skip("삭제할 ID가 없습니다.")
 
         url = f"{base_url}/network_interface/{TestNetworkInterfaceCRUD.created_id}"
-        
-        # 삭제 전 현재 서버의 실제 데이터 상태 확인
-        final_check = requests.get(url, headers=api_headers)
-        if final_check.status_code == 200:
-            actual_data = final_check.json()
-            print(f"\n[최종 삭제 전 데이터 상태]")
-            print(f"👉 예상 ID: {TestNetworkInterfaceCRUD.created_id}")
-            print(f"👉 실제 조회된 ID: {actual_data.get('id')}")
-            print(f"👉 실제 조회된 이름: {actual_data.get('name')}")
-            
-            if actual_data.get('id') != TestNetworkInterfaceCRUD.created_id:
-                print("🚨 경고: 관리 중인 ID와 서버의 응답 ID가 다릅니다! (데이터 오염)")
 
         response = requests.delete(url, headers=api_headers)
-        assert response.status_code == 200
-        print(f"[최종 성공] 리소스 {TestNetworkInterfaceCRUD.created_id} 삭제 요청 완료")
+        assert response.status_code == 200, f"⛔ [FAIL] 네트워크 인터페이스 삭제 실패 - 상태 코드: {response.status_code}"
+
+    def test_NW_012_01_verify_deletion(self, api_headers):
+        """삭제 후 실제로 리소스가 사라졌는지 확인"""
+        if not TestNetworkInterfaceCRUD.created_id:
+            pytest.skip("검증할 리소스 ID가 없습니다.")
+
+        url = f"{base_url}/network_interface/{TestNetworkInterfaceCRUD.created_id}"
+        response = requests.get(url, headers=api_headers)
+
+        assert response.status_code == 422, f"⛔ [FAIL] 삭제된 리소스가 여전히 조회됩니다 - 상태 코드: {response.status_code}"    
+
+    def test_NW_013_ERR_delete_attached_resource(self, api_headers):
+        """[Negative] 연결된 상태에서 삭제 시도"""
+        if not TestNetworkInterfaceCRUD.created_id:
+            pytest.skip("테스트할 리소스 ID가 없습니다.")
+
+        # 1. 삭제 시도할 URL
+        url = f"{base_url}/network_interface/{TestNetworkInterfaceCRUD.created_id}"
+        
+        with allure.step(f"연결된 리소스(ID: {TestNetworkInterfaceCRUD.created_id})에 삭제 요청 전송"):
+            response = requests.delete(url, headers=api_headers)
+            allure.attach(response.text, name="서버 응답 내용")
+
+        with allure.step("검증: 서버가 삭제를 차단하고 에러 코드를 반환하는지 확인"):
+            
+            assert response.status_code != 200, "🚨 오류: 연결된 상태인데도 리소스가 삭제되었습니다!"
+            assert response.status_code == 409, f"⛔ [FAIL] 409와 다른 상태 코드: {response.status_code}"
+
+    
+
+
+            
