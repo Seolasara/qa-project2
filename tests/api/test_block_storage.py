@@ -1,4 +1,8 @@
 import requests
+import pytest
+
+# 블록 스토리지 ID를 저장하기 위한 전역 변수
+_created_block_storage_id = None
 
 def test_BS001_list_exists_look_up(auth_token):
     """BS-001: 데이터가 있는 경우 목록 조회"""
@@ -28,6 +32,8 @@ def test_BS002_list_emptylook_up(auth_token):
 
 def test_BS003_create_success(auth_token):
     """BS-003: 블록 스토리지 생성 성공 및 검증"""
+    global _created_block_storage_id
+    
     url = "https://portal.gov.elice.cloud/api/user/resource/storage/block_storage"
     headers = {"Authorization": f"Bearer {auth_token}"}
     payload = {
@@ -48,6 +54,8 @@ def test_BS003_create_success(auth_token):
     
     # 2. 생성된 블록 스토리지 상세 조회 (GET)
     created_id = res_data["id"]
+    _created_block_storage_id = created_id  # 전역 변수에 저장
+    
     detail_url = f"{url}/{created_id}"
     detail_response = requests.get(detail_url, headers=headers)
     detail_data = detail_response.json()
@@ -167,7 +175,12 @@ def test_BS007_get_fail_non_existent_id(auth_token):
 
 def test_BS008_update_resource_name(auth_token):
     """BS-008: 블록 스토리지 이름 수정 검증"""
-    resource_id = "d3012bbe-11f3-44e6-9cd6-f485753914ee" # 수정할 리소스 ID
+    global _created_block_storage_id
+    
+    # test_BS003에서 생성된 블록 스토리지 ID 사용
+    assert _created_block_storage_id is not None, "test_BS003이 먼저 실행되어야 합니다."
+    resource_id = _created_block_storage_id
+    
     url = f"https://portal.gov.elice.cloud/api/user/resource/storage/block_storage/{resource_id}"
     headers = {"Authorization": f"Bearer {auth_token}"}
     
