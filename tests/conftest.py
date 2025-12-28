@@ -1,4 +1,3 @@
-# 토큰 로드(Fixture) 및 공통 설정 정의
 import pytest
 import requests
 import os
@@ -9,10 +8,12 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from src.utils.api_util import wait_for_status # 작성한 유틸 함수 임포트
+from src.utils.api_util import wait_for_status  # 수정된 유틸 함수 임포트
 from dotenv import load_dotenv
+
 load_dotenv()
 
+# --- Auth 관련 함수 (토큰 자동 생성) ---
 def generate_fresh_token():
     """새로운 토큰을 자동으로 생성"""
     options = Options()
@@ -25,11 +26,9 @@ def generate_fresh_token():
         driver.get("https://qatrack.elice.io/eci")
         wait = WebDriverWait(driver, 10)
         
-        # .env의 LOGIN_ID 사용
         email_field = wait.until(EC.presence_of_element_located((By.NAME, "loginId")))
         email_field.send_keys(os.getenv("LOGIN_ID"))
 
-        # .env의 PASSWORD 사용
         password_field = wait.until(EC.presence_of_element_located((By.NAME, "password")))
         password_field.send_keys(os.getenv("PASSWORD"))
         
@@ -38,84 +37,90 @@ def generate_fresh_token():
         wait.until(EC.url_contains("/eci/home"))
         
         token = driver.execute_script("return window.localStorage.getItem('accessToken');")
-        
         return token
-        
     finally:
         driver.quit()
 
 @pytest.fixture(scope="session")
 def auth_token():
-    """토큰을 자동으로 생성하고 반환"""
     return generate_fresh_token()
 
 @pytest.fixture(scope="session")
 def api_headers(auth_token):
-       return {
+    return {
         "Authorization": f"Bearer {auth_token}",
         "Host": "portal.gov.elice.cloud",
         "Content-Type": "application/json",
-        # "Accept": "application/json"
     }
 
-# API Base URL Fixtures
+# --- API Base URL Fixtures ---
 @pytest.fixture(scope="session")
 def base_url_block_storage():
-    """블록 스토리지 API Base URL"""
     return os.getenv("BASE_URL_BLOCK_STORAGE", "https://portal.gov.elice.cloud/api/user/resource/storage/block_storage")
 
 @pytest.fixture(scope="session")
 def base_url_network():
-    """네트워크 API Base URL"""
     return os.getenv("BASE_URL_NETWORK", "https://portal.gov.elice.cloud/api/user/resource/network")
 
 @pytest.fixture(scope="session")
 def base_url_object_storage():
-    """오브젝트 스토리지 API Base URL"""
     return os.getenv("BASE_URL_OBJECT_STORAGE", "https://portal.gov.elice.cloud/api/user/resource/storage/object_storage")
 
-
-# Setup/Teardown 공통 Fixture
+# --- Setup/Teardown 공통 Fixture ---
 @pytest.fixture
 def resource_factory(api_headers):
-    
     """
-    1. 리소스 생성/삭제 공통 Fixture
-    2. 반환값: {"id": resource_id, "name": resource_name}
-    3. 이미 삭제된 리소스는 teardown 단계에서 제외
+    리소스 생성 및 자동 삭제를 관리하는 팩토리 Fixture
+    - teardown=False 설정 시 테스트 종료 후 자동 삭제를 수행하지 않음 (삭제 검증 테스트용)
     """
     created_resources = []
 
-    def _create(base_url, payload):
+    def _create(base_url, payload, teardown=True):
         data = create_resource(base_url, api_headers, payload)
         resource_id = data["id"]
-        resource_name = payload["name"]
-        # 나중에 지울 리스트에 저장 (URL과 ID 쌍)
-        created_resources.append({"url": base_url, "id": resource_id, "name": resource_name, "deleting": False})
+        resource_name = payload.get("name", "unnamed_resource")
+        
+        if teardown:
+            created_resources.append({
+                "url": base_url, 
+                "id": resource_id, 
+                "name": resource_name
+            })
         return {"id": resource_id, "name": resource_name}
 
     yield _create
 
-    # Teardown: 생성된 역순으로 삭제
+    # Teardown: 생성된 역순으로 자동 삭제 실행
     for resource in reversed(created_resources):
-            try:
-                delete_resource(resource["url"], api_headers, resource["id"])
-            except Exception as e:
-                pass
+        try:
+            delete_resource(resource["url"], api_headers, resource["id"])
+        except Exception:
+            pass
 
 def create_resource(url, headers, payload):
-    """리소스 생성을 위한 공통 함수"""
+    """리소스 생성 공통 함수"""
     response = requests.post(url, headers=headers, json=payload)
     assert response.status_code == 200, f"⛔ [FAIL] 생성 실패: {response.text}"
     return response.json()
 
-def delete_resource(url, headers,resource_id):
-    """리소스 삭제를 위한 공통 함수"""
-    response = requests.delete(f"{url}/{resource_id}", headers=headers)
-    assert response.status_code == 200, f"⛔ [FAIL] 삭제 실패, {response.status_code}: {response.text}"
+def delete_resource(url, headers, resource_id):
+    """리소스 삭제 공통 함수"""
+    target_url = f"{url.rstrip('/')}/{resource_id}"
+    response = requests.delete(target_url, headers=headers)
+    # 200 외에도 이미 삭제된 경우(404)나 진행 중인 경우(409)는 성공적으로 처리된 것으로 간주할 수 있음
+    if response.status_code not in [200, 204, 404]:
+        response.raise_for_status()
+    return response
 
+# --- Helpers Fixture (유틸 함수 연결) ---
+@pytest.fixture
+def api_helpers():
+    class Helpers:
+        # api_util.py에 정의된 지수 백오프 기반 함수를 그대로 사용
+        wait_for_status = staticmethod(wait_for_status)
+    return Helpers()
 
-# Object Storage 전용 payload
+# --- 기타 공통 Fixtures (Object Storage 등) ---
 @pytest.fixture
 def existing_bucket(resource_factory, base_url_object_storage):
     payload = {
@@ -132,11 +137,5 @@ def existing_user(resource_factory, base_url_object_storage):
         "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
         "name": f"team2-{uuid.uuid4().hex[:6]}",
         "tags": {}
-        }
+    }
     return resource_factory(f"{base_url_object_storage}/user", payload)
-
-@pytest.fixture
-def api_helpers():
-    class Helpers:
-        wait_for_status = staticmethod(wait_for_status)
-    return Helpers()
