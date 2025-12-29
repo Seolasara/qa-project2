@@ -63,12 +63,11 @@ def base_url_block_compute():
     return os.getenv("BASE_URL_BLOCK_COMPUTE", "https://portal.gov.elice.cloud/api/user/resource/compute")
 
 @pytest.fixture(scope="session")
-def base_url_network():
-    """네트워크 API Base URL"""
-    return os.getenv("BASE_URL_NETWORK", "https://portal.gov.elice.cloud/api/user/resource/network")
+def base_url_compute(base_url_block_compute):
+    return base_url_block_compute
 
 @pytest.fixture(scope="session")
-def base_url_object_storage():
+def base_url_block_storage():
     """블록 스토리지 API Base URL"""
     return os.getenv("BASE_URL_BLOCK_STORAGE", "https://portal.gov.elice.cloud/api/user/resource/storage/block_storage")
 
