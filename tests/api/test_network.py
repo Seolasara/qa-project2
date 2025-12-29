@@ -19,7 +19,6 @@ class TestNetworkInterfaceCRUD:
         }
     
 
-    # 1. 목록 조회
     @allure.story("목록 조회")
     def test_NW001_interface_list(self, api_headers, base_url_network):
         url = f"{base_url_network}/network_interface?skip=0&count=20"
@@ -27,17 +26,15 @@ class TestNetworkInterfaceCRUD:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
-    @allure.story("목록 조회")
+    @allure.story("빈 목록 조회")
     @allure.title("네트워크 인터페이스 목록 조회 시 응답 형식(List) 검증")
     def test_NW002_interface_list_format(self, api_headers, base_url_network):
 
         url = f"{base_url_network}/network_interface?skip=0&count=20"
         response = requests.get(url, headers=api_headers)
         
-        # 1. 상태 코드 검증
         assert response.status_code == 200, f"목록 조회 실패: {response.text}"
         
-        # 2. 응답 데이터 타입 검증
         res_data = response.json()
         assert isinstance(res_data, list), f"⛔ [FAIL] 응답 데이터가 리스트 형식이 아닙니다: {type(res_data)}"
         
@@ -58,7 +55,6 @@ class TestNetworkInterfaceCRUD:
         assert response.status_code == 200
         assert response.json()["name"] == payload["name"]
 
-    # 4. 중복 생성 실패 (테스크케이스 NW004)
     @allure.story("예외 케이스")
     @pytest.mark.xfail(reason="서버 중복 이름 허용 버그")
     def test_NW004_duplicate_create_fail(self, resource_factory, api_headers, base_url_network):
@@ -68,7 +64,6 @@ class TestNetworkInterfaceCRUD:
         response = requests.post(f"{base_url_network}/network_interface", headers=api_headers, json=payload)
         assert response.status_code == 409
 
-    # 5. 존재하지 않는 참조 ID로 생성 실패 (테스크케이스 NW005)
     @allure.story("예외 케이스")
     @allure.title("존재하지 않는 zone_id 등으로 생성 시도 시 실패")
     def test_NW_005_ERR_invalid_ids(self, api_headers, base_url_network):
@@ -82,7 +77,6 @@ class TestNetworkInterfaceCRUD:
         response = requests.post(f"{base_url_network}/network_interface", headers=api_headers, json=payload)
         assert response.status_code in [409, 422]
 
-    # 6. 이름 수정 (테스크케이스 NW008)
     @allure.story("수정")
     def test_NW008_interface_patch(self, resource_factory, api_headers, base_url_network):
         resource = resource_factory(f"{base_url_network}/network_interface", self.get_nic_payload())
@@ -92,7 +86,6 @@ class TestNetworkInterfaceCRUD:
         requests.patch(url, headers=api_headers, json={"name": new_name})
         assert requests.get(url, headers=api_headers).json()["name"] == new_name
 
-    # 7. 불변 필드 수정 시도 (테스크케이스 NW010)
     @allure.story("예외 케이스")
     @allure.title("불변 필드(zone_id) 수정 시도 시 값 유지 또는 에러 확인")
     def test_NW_010_ERR_patch_immutable_field(self, resource_factory, api_headers, base_url_network):
@@ -107,7 +100,6 @@ class TestNetworkInterfaceCRUD:
         else:
             assert response.status_code in [400, 422, 409]
 
-    # 8. 중복 이름으로 수정 차단 (테스크케이스 NW011)
     @allure.story("수정")
     @pytest.mark.xfail(reason="서버 중복 수정 허용 버그")
     def test_NW_011_ERR_patch_conflict(self, resource_factory, api_headers, base_url_network):
@@ -228,12 +220,6 @@ class TestNetworkInterfaceCRUD:
     @allure.story("삭제")
     @allure.title("존재하지 않는 ID로 삭제 시도 시 409 에러 확인")
     def test_NW_015_ERR_delete_non_existent_id(self, api_headers, base_url_network):
-        """
-        시나리오:
-        1. 서버에 존재하지 않는 무작위 UUID를 생성한다.
-        2. 해당 ID를 경로에 넣어 DELETE 요청을 보낸다.
-        3. 서버가 409 Conflict를 반환하는지 확인한다.
-        """
         # 1. 존재하지 않는 가짜 ID 생성
         fake_id = str(uuid.uuid4())
         target_url = f"{base_url_network}/network_interface/{fake_id}"
