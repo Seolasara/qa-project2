@@ -5,7 +5,6 @@ import pytest
 
 class TestBlockStorageCRUD:
     """블록 스토리지 API 테스트 클래스"""
-    created_block_storage_id = None
 
     def test_BS001_list_exists_look_up(self, api_headers, base_url_block_storage):
         """BS-001: 데이터가 있는 경우 목록 조회"""
@@ -33,12 +32,13 @@ class TestBlockStorageCRUD:
         assert response.status_code == 200
         # assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
 
-    def test_BS003_create_success(self, api_headers, base_url_block_storage):
+    def test_BS003_create_success(self, resource_factory, api_headers, base_url_block_storage):
         """BS-003: 블록 스토리지 생성 성공 및 검증"""
+        import uuid
         url = base_url_block_storage
         headers = api_headers
         payload = {
-                        "name": "team2",
+                        "name": f"team2-{uuid.uuid4().hex[:6]}",
                         "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
                         "size_gib": 10,
                         "dr": False,
@@ -46,17 +46,11 @@ class TestBlockStorageCRUD:
                         "snapshot_id": None
         }
 
-        # 1. 블록 스토리지 생성
-        response = requests.post(url, headers=headers, json=payload)
-        res_data = response.json()
-        
-        assert response.status_code == 200, f"생성 실패: {res_data}"
-        assert "id" in res_data, "생성 응답에 id가 없습니다"
+        # 1. 블록 스토리지 생성 (resource_factory 사용)
+        created_resource = resource_factory(url, payload)
+        created_id = created_resource["id"]
         
         # 2. 생성된 블록 스토리지 상세 조회 (GET)
-        created_id = res_data["id"]
-        TestBlockStorageCRUD.created_block_storage_id = created_id  # 클래스 변수에 저장
-        
         detail_url = f"{url}/{created_id}"
         detail_response = requests.get(detail_url, headers=headers)
         detail_data = detail_response.json()
@@ -170,11 +164,20 @@ class TestBlockStorageCRUD:
 
         print(f"테스트 통과: 존재하지 않는 ID({invalid_id}) 조회 시 404 및 'Not Found' 확인")
 
-    def test_BS008_update_resource_name(self, api_headers, base_url_block_storage):
+    def test_BS008_update_resource_name(self, resource_factory, api_headers, base_url_block_storage):
         """BS-008: 블록 스토리지 이름 수정 검증"""
-        # test_BS003에서 생성된 블록 스토리지 ID 사용
-        assert TestBlockStorageCRUD.created_block_storage_id is not None, "test_BS003이 먼저 실행되어야 합니다."
-        resource_id = TestBlockStorageCRUD.created_block_storage_id
+        import uuid
+        # 테스트용 블록 스토리지 생성
+        payload = {
+            "name": f"team2-{uuid.uuid4().hex[:6]}",
+            "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
+            "size_gib": 10,
+            "dr": False,
+            "image_id": None,
+            "snapshot_id": None
+        }
+        created_resource = resource_factory(base_url_block_storage, payload)
+        resource_id = created_resource["id"]
         
         url = f"{base_url_block_storage}/{resource_id}"
         headers = api_headers
@@ -223,11 +226,20 @@ class TestBlockStorageCRUD:
         assert "JSON decode error" in error_detail["msg"]
         assert "Expecting ',' delimiter" in error_detail["ctx"]["error"]
 
-    def test_BS010_delete_resource_success(self, api_headers, base_url_block_storage):
+    def test_BS010_delete_resource_success(self, resource_factory, api_headers, base_url_block_storage):
         """BS-010: 블록 스토리지 삭제 요청 성공 검증"""
-        # test_BS003에서 생성하고 test_BS008에서 수정한 블록 스토리지 ID 사용
-        assert TestBlockStorageCRUD.created_block_storage_id is not None, "test_BS003이 먼저 실행되어야 합니다."
-        resource_id = TestBlockStorageCRUD.created_block_storage_id
+        import uuid
+        # 테스트용 블록 스토리지 생성
+        payload = {
+            "name": f"team2-{uuid.uuid4().hex[:6]}",
+            "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
+            "size_gib": 10,
+            "dr": False,
+            "image_id": None,
+            "snapshot_id": None
+        }
+        created_resource = resource_factory(base_url_block_storage, payload)
+        resource_id = created_resource["id"]
         
         url = f"{base_url_block_storage}/{resource_id}"
         headers = api_headers
@@ -241,15 +253,29 @@ class TestBlockStorageCRUD:
         assert res_data["id"] == resource_id
         assert res_data["status"] == "deleting"
 
-    def test_BS011_delete_fail_already_deleted(self, api_headers, base_url_block_storage):
+    def test_BS011_delete_fail_already_deleted(self, resource_factory, api_headers, base_url_block_storage):
         """BS-011: 이미 삭제된 ID 삭제 시도 시 409 Conflict 검증"""
-        # test_BS010에서 삭제한 블록 스토리지를 다시 삭제 시도
-        assert TestBlockStorageCRUD.created_block_storage_id is not None, "test_BS010이 먼저 실행되어야 합니다."
-        resource_id = TestBlockStorageCRUD.created_block_storage_id
+        import uuid
+        # 1. 테스트용 블록 스토리지 생성
+        payload = {
+            "name": f"team2-{uuid.uuid4().hex[:6]}",
+            "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
+            "size_gib": 10,
+            "dr": False,
+            "image_id": None,
+            "snapshot_id": None
+        }
+        created_resource = resource_factory(base_url_block_storage, payload)
+        resource_id = created_resource["id"]
         
         url = f"{base_url_block_storage}/{resource_id}"
         headers = api_headers
 
+        # 2. 첫 번째 삭제 요청 (성공해야 함)
+        first_delete = requests.delete(url, headers=headers)
+        assert first_delete.status_code == 200
+
+        # 3. 두 번째 삭제 요청 (409 Conflict 예상)
         response = requests.delete(url, headers=headers)
         res_data = response.json()
 
