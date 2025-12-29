@@ -28,7 +28,6 @@ class TestNetworkInterfaceCRUD:
     @allure.story("빈 목록 조회")
     @allure.title("네트워크 인터페이스 목록 조회 시 응답 형식(List) 검증")
     def test_NW002_interface_list_format(self, api_headers, base_url_network):
-
         url = f"{base_url_network}/network_interface?skip=0&count=20"
         response = requests.get(url, headers=api_headers)
         
@@ -37,13 +36,12 @@ class TestNetworkInterfaceCRUD:
         res_data = response.json()
         assert isinstance(res_data, list), f"⛔ [FAIL] 응답 데이터가 리스트 형식이 아닙니다: {type(res_data)}"
         
-        # 3. 빈 리스트인 경우에도 성공으로 간주 (데이터가 없을 때의 정상 응답이므로)
+        # 빈 리스트인 경우에도 성공으로 간주
         if len(res_data) == 0:
             allure.step("현재 리소스가 없어 빈 리스트([])가 반환되었습니다.")
         else:
             allure.step(f"현재 {len(res_data)}개의 리소스가 리스트로 반환되었습니다.")
 
-    # 3. 생성 및 단건 조회 (테스크케이스 NW003, NW006 통합)
     @allure.story("생성 및 조회")
     def test_NW003_interface_create_and_get(self, resource_factory, api_headers, base_url_network):
         payload = self.get_nic_payload()
@@ -111,25 +109,29 @@ class TestNetworkInterfaceCRUD:
 
     @allure.story("NIC 삭제")
     @allure.title("NW12: NIC 삭제 및 실제 제거 확인")
-    def test_NW12_nic_delete(self, resource_factory, api_headers, base_url_network, api_helpers):
+    def test_NW12_nic_delete(self, api_headers, base_url_network, api_helpers):
+        """삭제 테스트: resource_factory 사용하지 않고 직접 생성"""
+        url = f"{base_url_network}/network_interface"
         payload = self.get_nic_payload()
-        resource = resource_factory(f"{base_url_network}/network_interface", payload, teardown=False)
-        url = f"{base_url_network}/network_interface/{resource['id']}"
+        
+        # 직접 생성
+        response = requests.post(url, headers=api_headers, json=payload)
+        assert response.status_code == 200, f"⛔ [FAIL] 생성 실패: {response.text}"
+        resource_id = response.json()["id"]
+        target_url = f"{url}/{resource_id}"
 
-        logger.info(f"🗑️ [NW12] NIC 삭제 요청: {url}")
-        assert requests.delete(url, headers=api_headers).status_code == 200
+        logger.info(f"🗑️ [NW12] NIC 삭제 요청: {target_url}")
+        assert requests.delete(target_url, headers=api_headers).status_code == 200
 
-        # ✅ api_helpers를 사용하여 스마트 대기 (지수 백오프 적용됨)
-        success = api_helpers.wait_for_status(url, api_headers)
+        # api_helpers를 사용하여 스마트 대기 (지수 백오프 적용됨)
+        success = api_helpers.wait_for_status(target_url, api_headers)
         assert success, "⛔ [FAIL] 시간 이내에 NIC가 삭제되지 않았습니다."
         logger.success("✅ [NW12] NIC 삭제 확인 완료")
-        
 
-    # 10. 연결 리소스 존재 시 삭제 차단 (테스크케이스 NW013)  
     @allure.story("연결")
     @allure.title("네트워크 인터페이스를 머신에 연결하는 프로세스 검증")
     @pytest.mark.skip(reason="API 중복 수정 검증 미구현")
-    def test_NW_013_attach_interface_to_instance(self, api_headers, base_url_network, base_url_compute, api_helpers):
+    def test_NW_013_attach_interface_to_instance(self, resource_factory, api_headers, base_url_network, base_url_compute, api_helpers):
         """
         시나리오:
         1. 테스트용 가상 머신(Server)을 생성한다.
@@ -140,45 +142,40 @@ class TestNetworkInterfaceCRUD:
         
         # 1. 가상 머신 생성
         with allure.step("단계 1: 테스트용 머신 생성"):
-            instance_url = f"{base_url_compute}/server"
             instance_payload = {
                 "name": f"test-vm-{uuid.uuid4().hex[:4]}",
                 "image_id": "여기에_실제_이미지_ID",
                 "spec_id": "여기에_실제_스펙_ID"
             }
-            instance_res = requests.post(instance_url, headers=api_headers, json=instance_payload)
-            assert instance_res.status_code == 200, f"머신 생성 실패: {instance_res.text}"
-            instance_id = instance_res.json()["id"]
+            instance = resource_factory(f"{base_url_compute}/server", instance_payload)
+            instance_id = instance["id"]
             logger.info(f"✅ 머신 생성 완료 (ID: {instance_id})")
 
         # 2. 네트워크 인터페이스 생성
         with allure.step("단계 2: 테스트용 NIC 생성"):
-            nic_url = f"{base_url_network}/network_interface"
             nic_payload = {
                 "name": f"attach-nic-{uuid.uuid4().hex[:4]}",
                 "attached_subnet_id": "여기에_실제_서브넷_ID"
             }
-            nic_res = requests.post(nic_url, headers=api_headers, json=nic_payload)
-            assert nic_res.status_code == 200, f"NIC 생성 실패: {nic_res.text}"
-            nic_id = nic_res.json()["id"]
-            target_nic_url = f"{nic_url}/{nic_id}"
+            nic = resource_factory(f"{base_url_network}/network_interface", nic_payload)
+            nic_id = nic["id"]
+            target_nic_url = f"{base_url_network}/network_interface/{nic_id}"
             logger.info(f"✅ NIC 생성 완료 (ID: {nic_id})")
 
-        # 3. NIC를 머신에 연결 (보통 PATCH를 사용하여 attached_machine_id 업데이트)
+        # 3. NIC를 머신에 연결
         with allure.step("단계 3: NIC를 머신에 연결 요청"):
             logger.info(f"🔗 NIC({nic_id})를 머신({instance_id})에 연결 시도...")
             attach_payload = {"attached_machine_id": instance_id}
             attach_res = requests.patch(target_nic_url, headers=api_headers, json=attach_payload)
             assert attach_res.status_code == 200, f"연결 요청 실패: {attach_res.text}"
 
-        # 4. 연결 상태 폴링 대기 (api_helpers 활용)
+        # 4. 연결 상태 폴링 대기
         with allure.step("단계 4: 연결 완료 상태 대기 (Polling)"):
-            # src/utils/api_util.py에 정의한 함수 호출
             success = api_helpers.wait_for_status(
                 url=target_nic_url,
                 headers=api_headers,
-                expected_status="active", # 서버 규격에 맞는 연결 완료 상태값
-                timeout=30 # 연결은 생성보다 시간이 더 걸릴 수 있음
+                expected_status="active",
+                timeout=30
             )
         
         # 5. 최종 데이터 검증
@@ -193,21 +190,25 @@ class TestNetworkInterfaceCRUD:
     @allure.story("삭제")
     @allure.title("이미 삭제된 리소스 재삭제 시도 시 409 에러 확인")
     def test_NW_014_ERR_delete_already_deleted(self, api_headers, base_url_network):
+        """재삭제 테스트: resource_factory 사용하지 않고 직접 생성"""
         url = f"{base_url_network}/network_interface"
+        payload = self.get_nic_payload()
         
-        # 1. 생성 및 1차 삭제
-        res_data = requests.post(url, headers=api_headers, json=self.get_nic_payload()).json()
-        res_id = res_data["id"]
-        target_url = f"{url}/{res_id}"
+        # 1. 직접 생성
+        response = requests.post(url, headers=api_headers, json=payload)
+        assert response.status_code == 200, f"⛔ [FAIL] 생성 실패: {response.text}"
+        resource_id = response.json()["id"]
+        target_url = f"{url}/{resource_id}"
         
+        # 2. 1차 삭제
         requests.delete(target_url, headers=api_headers)
-        allure.step(f"리소스 1차 삭제 완료 (ID: {res_id})")
+        allure.step(f"리소스 1차 삭제 완료 (ID: {resource_id})")
 
-        # 2. 2차 삭제 시도 (이미 삭제된 상태)
+        # 3. 2차 삭제 시도 (이미 삭제된 상태)
         response = requests.delete(target_url, headers=api_headers)
         res_body = response.json()
 
-        # 3. 검증
+        # 4. 검증
         with allure.step("409 Conflict 및 에러 메시지 검증"):
             assert response.status_code == 409
             assert res_body["code"] == "unexpected_status"
@@ -229,14 +230,13 @@ class TestNetworkInterfaceCRUD:
         
         # 3. 검증
         with allure.step(f"존재하지 않는 ID({fake_id}) 삭제 시도 결과 검증"):
-            # 요청하신 대로 409 응답 코드를 명확히 검증
             assert response.status_code == 409, (
                 f"⛔ [FAIL] 존재하지 않는 ID 삭제 시 409가 아닌 다른 코드 반환: {response.status_code}"
             )
             
             res_body = response.json()
-            # 서버가 보내주는 에러 메시지도 함께 기록
             allure.attach(str(res_body), name="서버 응답 내용")
+
 
 @allure.epic("서브넷 관리 API")
 @allure.feature("서브넷 CRUD")
@@ -250,8 +250,7 @@ class TestSubNetCRUD:
             "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
             "attached_network_id": "c0c99a0a-9aca-4e73-a601-81dfb2ba7284",
             "network_gw": f"192.168.{random_ip_sub}.1/24"
-            }
-
+        }
 
     @allure.story("목록 조회")
     def test_NW16_subnet_list(self, api_headers, base_url_network):
@@ -260,7 +259,6 @@ class TestSubNetCRUD:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
-    #테스트케이스 19번 조회 포함
     @allure.story("생성 및 조회")
     def test_NW17_subnet_create_and_get(self, resource_factory, api_headers, base_url_network):
         payload = self.get_subnet_payload()
@@ -295,7 +293,7 @@ class TestSubNetCRUD:
         requests.patch(url, headers=api_headers, json={"name": new_name})
         assert requests.get(url, headers=api_headers).json()["name"] == new_name
 
-    @allure.story("반복 수정 :같은 이름 변경 *3번")
+    @allure.story("반복 수정: 같은 이름 변경 *3번")
     def test_NW22_subnet_repeated_patch(self, resource_factory, api_headers, base_url_network):
         resource = resource_factory(f"{base_url_network}/subnet", self.get_subnet_payload())
         url = f"{base_url_network}/subnet/{resource['id']}"
@@ -319,16 +317,22 @@ class TestSubNetCRUD:
 
     @allure.story("서브넷 삭제")
     @allure.title("NW24: 서브넷 삭제 및 실제 제거 확인")
-    def test_NW24_subnet_delete(self, resource_factory, api_headers, base_url_network, api_helpers):
+    def test_NW24_subnet_delete(self, api_headers, base_url_network, api_helpers):
+        """삭제 테스트: resource_factory 사용하지 않고 직접 생성"""
+        url = f"{base_url_network}/subnet"
         payload = self.get_subnet_payload()
-        resource = resource_factory(f"{base_url_network}/subnet", payload, teardown=False)
-        url = f"{base_url_network}/subnet/{resource['id']}"
+        
+        # 직접 생성
+        response = requests.post(url, headers=api_headers, json=payload)
+        assert response.status_code == 200, f"⛔ [FAIL] 생성 실패: {response.text}"
+        resource_id = response.json()["id"]
+        target_url = f"{url}/{resource_id}"
 
-        logger.info(f"🗑️ [NW24] 서브넷 삭제 요청: {url}")
-        assert requests.delete(url, headers=api_headers).status_code == 200
+        logger.info(f"🗑️ [NW24] 서브넷 삭제 요청: {target_url}")
+        assert requests.delete(target_url, headers=api_headers).status_code == 200
 
-        # ✅ api_helpers를 사용하여 스마트 대기
-        success = api_helpers.wait_for_status(url, api_headers)
+        # api_helpers를 사용하여 스마트 대기
+        success = api_helpers.wait_for_status(target_url, api_headers)
         assert success, "⛔ [FAIL] 시간 이내에 서브넷이 삭제되지 않았습니다."
         logger.success("✅ [NW24] 서브넷 삭제 확인 완료")
 
@@ -364,5 +368,4 @@ class TestSubNetCRUD:
             )
             
             res_body = response.json()
-            allure.attach(str(res_body), name="서버 응답 내용")    
-
+            allure.attach(str(res_body), name="서버 응답 내용")
