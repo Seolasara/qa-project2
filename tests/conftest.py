@@ -69,33 +69,30 @@ def base_url_object_storage():
 # --- Setup/Teardown 공통 Fixture ---
 @pytest.fixture
 def resource_factory(api_headers):
+    
     """
-    리소스 생성 및 자동 삭제를 관리하는 팩토리 Fixture
-    - teardown=False 설정 시 테스트 종료 후 자동 삭제를 수행하지 않음 (삭제 검증 테스트용)
+    1. 리소스 생성/삭제 공통 Fixture
+    2. 반환값: {"id": resource_id, "name": resource_name}
+    3. 이미 삭제된 리소스는 teardown 단계에서 제외
     """
     created_resources = []
 
-    def _create(base_url, payload, teardown=True):
+    def _create(base_url, payload):
         data = create_resource(base_url, api_headers, payload)
         resource_id = data["id"]
-        resource_name = payload.get("name", "unnamed_resource")
-        
-        if teardown:
-            created_resources.append({
-                "url": base_url, 
-                "id": resource_id, 
-                "name": resource_name
-            })
+        resource_name = payload["name"]
+        # 나중에 지울 리스트에 저장 (URL과 ID 쌍)
+        created_resources.append({"url": base_url, "id": resource_id, "name": resource_name, "deleting": False})
         return {"id": resource_id, "name": resource_name}
 
     yield _create
 
-    # Teardown: 생성된 역순으로 자동 삭제 실행
+    # Teardown: 생성된 역순으로 삭제
     for resource in reversed(created_resources):
-        try:
-            delete_resource(resource["url"], api_headers, resource["id"])
-        except Exception:
-            pass
+            try:
+                delete_resource(resource["url"], api_headers, resource["id"])
+            except Exception as e:
+                pass
 
 def create_resource(url, headers, payload):
     """리소스 생성 공통 함수"""
@@ -103,14 +100,10 @@ def create_resource(url, headers, payload):
     assert response.status_code == 200, f"⛔ [FAIL] 생성 실패: {response.text}"
     return response.json()
 
-def delete_resource(url, headers, resource_id):
-    """리소스 삭제 공통 함수"""
-    target_url = f"{url.rstrip('/')}/{resource_id}"
-    response = requests.delete(target_url, headers=headers)
-    # 200 외에도 이미 삭제된 경우(404)나 진행 중인 경우(409)는 성공적으로 처리된 것으로 간주할 수 있음
-    if response.status_code not in [200, 204, 404]:
-        response.raise_for_status()
-    return response
+def delete_resource(url, headers,resource_id):
+    """리소스 삭제를 위한 공통 함수"""
+    response = requests.delete(f"{url}/{resource_id}", headers=headers)
+    assert response.status_code == 200, f"⛔ [FAIL] 삭제 실패, {response.status_code}: {response.text}"
 
 # --- Helpers Fixture (유틸 함수 연결) ---
 @pytest.fixture
