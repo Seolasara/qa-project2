@@ -2,7 +2,6 @@ from email import errors
 import requests
 import pytest
 
-
 class TestBlockStorageCRUD:
     """블록 스토리지 API 테스트 클래스"""
 
