@@ -20,7 +20,7 @@ class TestBlockStorageCRUD:
         assert "id" in res_data[0]
         assert "name" in res_data[0]
 
-
+    @pytest.mark.xfail(reason="실제 환경에서는 목록을 비워둘 수 없음")
     def test_BS002_list_emptylook_up(self, api_headers, base_url_block_storage):
         """BS-002: 데이터가 없는 경우 조회"""
         headers = api_headers
@@ -30,7 +30,7 @@ class TestBlockStorageCRUD:
         res_data = response.json()
 
         assert response.status_code == 200
-        # assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
+        assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
 
     def test_BS003_create_success(self, resource_factory, api_headers, base_url_block_storage):
         """BS-003: 블록 스토리지 생성 성공 및 검증"""
@@ -300,7 +300,7 @@ class TestSanpshotCRUD:
         assert "id" in res_data[0]
         assert "name" in res_data[0]
 
-
+    @pytest.mark.xfail(reason="실제 환경에서는 목록을 비워둘 수 없음")
     def test_BS013_list_emptylook_up(self, api_headers, base_url_block_storage):
         """BS-013: 데이터가 없는 경우 조회"""
         headers = api_headers
@@ -310,7 +310,7 @@ class TestSanpshotCRUD:
         res_data = response.json()
 
         assert response.status_code == 200
-        # assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
+        assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
 
     def test_BS014_create_success(self, resource_factory, api_headers, base_url_block_storage):
         """BS-014: 스냅샷 생성 성공 및 검증"""
@@ -585,7 +585,7 @@ class Testsnapshot_schedulerCRUD:
         assert "id" in res_data[0]
         assert "name" in res_data[0]
 
-
+    @pytest.mark.xfail(reason="실제 환경에서는 목록을 비워둘 수 없음")
     def test_BS024_list_emptylook_up(self, api_headers, base_url_block_storage):
         """BS-024: 데이터가 없는 경우 조회"""
         headers = api_headers
@@ -595,7 +595,7 @@ class Testsnapshot_schedulerCRUD:
         res_data = response.json()
 
         assert response.status_code == 200
-        # assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
+        assert res_data == [], f"데이터가 비어있어야 하지만 {len(res_data)}개의 데이터가 반환되었습니다."
     
     def test_BS025_create_success(self, resource_factory, api_headers, base_url_block_storage):
         """BS-025: 스냅샷 생성 성공 및 검증"""
