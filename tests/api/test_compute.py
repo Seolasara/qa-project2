@@ -16,12 +16,55 @@ class TestComputeCRUD:
     deleted_vm_verified = False
 
     # VM-001 VM 생성
-    def test_VM001_create_vm(self, api_headers, base_url_compute):
-        url = f"{base_url_compute}/virtual_machine"
+    # def test_VM001_create_vm(self, api_headers, base_url_compute):
+    #     url = f"{base_url_compute}/virtual_machine"
 
-        body_base = {
-            "name": f"vm-auto-{uuid.uuid4().hex[:6]}",
+    #     body_base = {
+    #         "name": f"vm-auto-{uuid.uuid4().hex[:6]}",
+    #         "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
+    #         "username": "test",
+    #         "password": "1qaz2wsx@@",
+    #         "on_init_script": "",
+    #         "always_on": False,
+    #         "dr": False,
+    #     }
+
+    #     # ✅ 여기만 "후보군 fallback"으로 교체
+    #     r = self._create_vm_with_instance_fallback(
+    #         api_headers=api_headers,
+    #         url=url,
+    #         body_base=body_base,
+    #         candidates=INSTANCE_TYPE_CANDIDATES,
+    #         max_retry_per_type=1,
+    #     )
+
+    #     assert r.status_code in (200, 201), f"status={r.status_code}, body={r.text}"
+
+    #     res = r.json()
+    #     assert isinstance(res, dict), f"create response not dict: {res}"
+    #     assert res.get("id"), f"create response missing id: {res}"
+
+    #     TestComputeCRUD.created_vm_id = res["id"]
+
+    #     self._wait_vm_visible(
+    #         api_headers,
+    #         base_url_compute,
+    #         TestComputeCRUD.created_vm_id,
+    #         timeout_sec=60,
+    #     )
+
+    def test_VM_create_rename_delete(self, api_headers, base_url_compute):
+
+        # 1. VM 생성 (VM-001 기준)
+
+        create_url = f"{base_url_compute}/virtual_machine"
+
+        vm_name = f"vm-{uuid.uuid4().hex[:6]}"
+
+        body = {
+            "name": vm_name,
             "zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0",
+            "instance_type_id": "320909e3-44ce-4018-8b55-7e837cd84a15",  # VM-001에서 성공한 값
             "username": "test",
             "password": "1qaz2wsx@@",
             "on_init_script": "",
@@ -29,29 +72,32 @@ class TestComputeCRUD:
             "dr": False,
         }
 
-        # ✅ 여기만 "후보군 fallback"으로 교체
-        r = self._create_vm_with_instance_fallback(
-            api_headers=api_headers,
-            url=url,
-            body_base=body_base,
-            candidates=INSTANCE_TYPE_CANDIDATES,
-            max_retry_per_type=1,
+        r_create = requests.post(create_url, headers=api_headers, json=body)
+        assert r_create.status_code in (200, 201), f"VM 생성 실패: {r_create.text}"
+
+        vm_id = r_create.json().get("id")
+        assert vm_id, f"VM 생성 응답에 id 없음: {r_create.text}"
+
+
+        # 2. VM 이름 수정 (뒤에 test 추가)
+
+        patch_url = f"{base_url_compute}/virtual_machine/{vm_id}"
+        new_name = f"{vm_name} test"
+
+        r_patch = requests.patch(
+            patch_url,
+            headers=api_headers,
+            json={"name": new_name},
         )
+        assert r_patch.status_code == 200, f"VM 이름 수정 실패: {r_patch.text}"
 
-        assert r.status_code in (200, 201), f"status={r.status_code}, body={r.text}"
 
-        res = r.json()
-        assert isinstance(res, dict), f"create response not dict: {res}"
-        assert res.get("id"), f"create response missing id: {res}"
+        # 3. VM 삭제
 
-        TestComputeCRUD.created_vm_id = res["id"]
+        delete_url = f"{base_url_compute}/virtual_machine/{vm_id}"
 
-        self._wait_vm_visible(
-            api_headers,
-            base_url_compute,
-            TestComputeCRUD.created_vm_id,
-            timeout_sec=60,
-        )
+        r_delete = requests.delete(delete_url, headers=api_headers)
+        assert r_delete.status_code == 200, f"VM 삭제 실패: {r_delete.text}"
 
     # VM-002 다른 인스턴스 타입으로 VM 생성
     def test_VM002_create_vm_different_instance_type(self, api_headers, base_url_compute):
