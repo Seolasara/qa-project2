@@ -13,6 +13,7 @@ INSTANCE_TYPE_CANDIDATES = [
 class TestComputeCRUD:
     created_vm_id = None
     deleted_vm_verified = False
+    
     # VM-001 생성, 수정, 삭제 (resource_factory 적용)
     def test_VM_create_rename_delete(self, api_headers, base_url_compute):
 
