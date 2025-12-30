@@ -1,9 +1,12 @@
+from urllib import response
 import pytest
 import requests
 import uuid
 import allure
 import random
 from loguru import logger
+
+from tests.conftest import api_headers
 
 @allure.epic("네트워크 관리 API")
 @allure.feature("네트워크 인터페이스 CRUD")
@@ -72,7 +75,7 @@ class TestNetworkInterfaceCRUD:
             "dr": False
         }
         response = requests.post(f"{base_url_network}/network_interface", headers=api_headers, json=payload)
-        assert response.status_code in [409, 422]
+        assert response.status_code == 409
 
     @allure.story("수정")
     def test_NW008_interface_patch(self, resource_factory, api_headers, base_url_network):
@@ -84,29 +87,30 @@ class TestNetworkInterfaceCRUD:
         assert requests.get(url, headers=api_headers).json()["name"] == new_name
 
     @allure.story("예외 케이스")
-    @allure.title("불변 필드(zone_id) 수정 시도 시 값 유지 또는 에러 확인")
+    @allure.title("불변 필드(zone_id) 수정 시도 시 값 유지 확인")
     def test_NW_010_ERR_patch_immutable_field(self, resource_factory, api_headers, base_url_network):
         resource = resource_factory(f"{base_url_network}/network_interface", self.get_nic_payload())
         url = f"{base_url_network}/network_interface/{resource['id']}"
         
         original_zone = requests.get(url, headers=api_headers).json()["zone_id"]
-        response = requests.patch(url, headers=api_headers, json={"zone_id": str(uuid.uuid4())})
-        
-        if response.status_code == 200:
-            assert requests.get(url, headers=api_headers).json()["zone_id"] == original_zone
-        else:
-            assert response.status_code in [400, 422, 409]
+        new_zone_id = str(uuid.uuid4())
+        response = requests.patch(url, headers=api_headers, json={"zone_id": new_zone_id})
+    
+        # [검증] 시나리오 A: 서버는 요청을 수락(200)해야 함
+        assert response.status_code == 200, f"불변 필드 수정 시 200 OK를 기대했으나 {response.status_code}가 반환됨"
+
+        # [검증] 응답은 성공이었지만, 실제로 조회를 해봤을 때 값은 바뀌지 않았어야 함
+        current_zone = requests.get(url, headers=api_headers).json()["zone_id"]
+        assert current_zone == original_zone, f"불변 필드인 zone_id가 {original_zone}에서 {current_zone}으로 변경됨"
 
     @allure.story("수정")
-    @pytest.mark.xfail(reason="서버 중복 수정 허용 버그")
     def test_NW_011_ERR_patch_conflict(self, resource_factory, api_headers, base_url_network):
         res_a = resource_factory(f"{base_url_network}/network_interface", self.get_nic_payload())
         res_b = resource_factory(f"{base_url_network}/network_interface", self.get_nic_payload())
         
         url_a = f"{base_url_network}/network_interface/{res_a['id']}"
         response = requests.patch(url_a, headers=api_headers, json={"name": res_b["name"]})
-        assert response.status_code == 409, f"⛔ [FAIL] 409와 다른 상태 코드: {response.status_code}"
-
+        assert response.status_code == 200, f"⛔ [FAIL] 200과 다른 상태 코드: {response.status_code}"
     
     @allure.story("연결 및 해제")
     @allure.title("가상 네트워크 → 서브넷 → NIC 생성 → 해제 → 삭제 전체 시나리오")
@@ -599,8 +603,8 @@ class TestPublicIpCRUD:
             logger.info(f"✅ 조회된 공인 IP 개수: {len(res_data)}개")
 
     @allure.story("생성 조회")
-    @allure.title("NW39: 생성된 공인 IP가 목록에 포함되는지 확인")
-    def test_NW039_check_created_public_ip_in_list(self, resource_factory, api_headers, base_url_network):
+    @allure.title("NW041: 생성된 공인 IP가 목록에 포함되는지 확인")
+    def test_NW041_check_created_public_ip_in_list(self, resource_factory, api_headers, base_url_network):
         payload = self.get_public_ip_payload()
         created_ip = resource_factory(f"{base_url_network}/public_ip", payload)
         target_id = created_ip['id']
@@ -613,8 +617,8 @@ class TestPublicIpCRUD:
             logger.success(f"✅ 목록 노출 확인 완료")
 
     @allure.story("예외 케이스")
-    @allure.title("NW40: 중복 이름으로 공인 IP 생성 시도 시 200 확인")
-    def test_NW040_ERR_duplicate_public_ip_create_fail(self, resource_factory, api_headers, base_url_network):
+    @allure.title("NW039: 중복 이름으로 공인 IP 생성 시도 시 200 확인")
+    def test_NW039_ERR_duplicate_public_ip_create_fail(self, resource_factory, api_headers, base_url_network):
         payload = self.get_public_ip_payload()
         resource_factory(f"{base_url_network}/public_ip", payload)
         
@@ -627,15 +631,15 @@ class TestPublicIpCRUD:
         assert response.status_code == 200
 
     @allure.story("예외케이스:필수값 누락시")
-    @allure.title("NW41: 필수 필드 누락 시 공인 IP 생성 실패 검증")
-    def test_NW041_ERR_create_public_ip_missing_required_field(self, api_headers, base_url_network):
+    @allure.title("NW40: 필수 필드 누락 시 공인 IP 생성 실패 검증")
+    def test_NW040_ERR_create_public_ip_missing_required_field(self, api_headers, base_url_network):
         payload = {"zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0"} # name 누락
         response = requests.post(f"{base_url_network}/public_ip", headers=api_headers, json=payload)
         assert response.status_code == 422, f"⛔ 예상 코드 422, 실제: {response.status_code}"
 
     @allure.story("수정")
-    @allure.title("NW43: 공인 IP 태그 수정 및 반영 확인")
-    def test_NW043_public_ip_patch(self, resource_factory, api_headers, base_url_network):
+    @allure.title("NW42: 공인 IP 태그 수정 및 반영 확인")
+    def test_NW042_public_ip_patch(self, resource_factory, api_headers, base_url_network):
         """공인 IP의 태그를 수정하고 변경 사항이 반영되는지 확인"""
         # 1. 리소스 생성
         resource = resource_factory(f"{base_url_network}/public_ip", self.get_public_ip_payload())
@@ -661,8 +665,8 @@ class TestPublicIpCRUD:
             logger.success(f"✅ 공인 IP 태그 수정 및 반영 확인 완료: {actual_tags}")
 
     @allure.story("연결 실패 검증")
-    @allure.title("NW44: 존재하지 않는 NIC로 공인 IP 연결 시도 시 에러 확인")
-    def test_NW044_ERR_attach_public_ip_to_non_existent_nic(self, resource_factory, api_headers, base_url_network):
+    @allure.title("NW43: 존재하지 않는 NIC로 공인 IP 연결 시도 시 에러 확인")
+    def test_NW043_ERR_attach_public_ip_to_non_existent_nic(self, resource_factory, api_headers, base_url_network):
         public_ip = resource_factory(f"{base_url_network}/public_ip", self.get_public_ip_payload())
         fake_nic_id = str(uuid.uuid4())
         
@@ -673,8 +677,8 @@ class TestPublicIpCRUD:
         assert response.status_code in [409, 422], f"⛔ 예상 코드 409/422, 실제: {response.status_code}"
 
     @allure.story("수정-연결해제")
-    @allure.title("NW45: 공인 IP 연결 해제 및 반영 확인") 
-    def test_NW045_public_ip_detach(self, resource_factory, api_headers, base_url_network):
+    @allure.title("NW44: 공인 IP 연결 해제 및 반영 확인") 
+    def test_NW044_public_ip_detach(self, resource_factory, api_headers, base_url_network):
         public_ip = resource_factory(f"{base_url_network}/public_ip", self.get_public_ip_payload())
         
         # [수정] NIC 생성 시 필수 필드(attached_subnet_id, dr) 추가
@@ -697,8 +701,8 @@ class TestPublicIpCRUD:
         assert val is None or val == "", "⛔ 연결 해제 실패"
 
     @allure.story("공인 IP 삭제")
-    @allure.title("NW46: 공인 IP 삭제 및 실제 제거 확인")
-    def test_NW046_public_ip_delete(self, api_headers, base_url_network, api_helpers):
+    @allure.title("NW45: 공인 IP 삭제 및 실제 제거 확인")
+    def test_NW045_public_ip_delete(self, api_headers, base_url_network, api_helpers):
         response = requests.post(f"{base_url_network}/public_ip", headers=api_headers, json=self.get_public_ip_payload())
         resource_id = response.json()["id"]
         target_url = f"{base_url_network}/public_ip/{resource_id}"
@@ -710,24 +714,8 @@ class TestPublicIpCRUD:
         assert success, "⛔ 삭제 대기 타임아웃"
 
     @allure.story("예외 케이스")
-    @allure.title("NW47: 존재하지 않는 ID로 공인 IP 삭제 시도 409 에러 확인")
-    def test_NW047_ERR_delete_non_existent_public_ip(self, api_headers, base_url_network):
-        fake_id = str(uuid.uuid4())
-        target_url = f"{base_url_network}/public_ip/{fake_id}"
-        
-        response = requests.delete(target_url, headers=api_headers)
-        
-        with allure.step(f"존재하지 않는 ID({fake_id}) 삭제 시도 결과 검증"):
-            assert response.status_code == 409, (
-                f"⛔ [FAIL] 존재하지 않는 ID 삭제 시 409가 아닌 다른 코드 반환: {response.status_code}"
-            )
-            
-            res_body = response.json()
-            allure.attach(str(res_body), name="서버 응답 내용")
-
-    @allure.story("예외 케이스")
-    @allure.title("NW48: 이미 삭제된 공인 IP 재삭제 시도 시 409 에러 확인")
-    def test_NW048_ERR_delete_already_deleted_public_ip(self, api_headers, base_url_network, api_helpers):  
+    @allure.title("NW46: 이미 삭제된 공인 IP 재삭제 시도 시 409 에러 확인")
+    def test_NW046_ERR_delete_already_deleted_public_ip(self, api_headers, base_url_network, api_helpers):  
         response = requests.post(f"{base_url_network}/public_ip", headers=api_headers, json=self.get_public_ip_payload())
         resource_id = response.json()["id"]
         target_url = f"{base_url_network}/public_ip/{resource_id}"
@@ -750,9 +738,25 @@ class TestPublicIpCRUD:
             actual_status = res_body["detail"]["resource_public_ip"]["status"]    
             assert actual_status == "deleted", f"예상 상태는 deleted이나 {actual_status}가 반환됨"
 
+    @allure.story("예외 케이스")
+    @allure.title("NW47: 존재하지 않는 ID로 공인 IP 삭제 시도 409 에러 확인")
+    def test_NW047_ERR_delete_non_existent_public_ip(self, api_headers, base_url_network):
+        fake_id = str(uuid.uuid4())
+        target_url = f"{base_url_network}/public_ip/{fake_id}"
+        
+        response = requests.delete(target_url, headers=api_headers)
+        
+        with allure.step(f"존재하지 않는 ID({fake_id}) 삭제 시도 결과 검증"):
+            assert response.status_code == 409, (
+                f"⛔ [FAIL] 존재하지 않는 ID 삭제 시 409가 아닌 다른 코드 반환: {response.status_code}"
+            )
+            
+            res_body = response.json()
+            allure.attach(str(res_body), name="서버 응답 내용")
+
     @allure.story("통합 시나리오 테스트")
-    @allure.title("NW49: 공인 IP 전체 시나리오 검증")
-    def test_NW049_public_ip_nic_integration(self, resource_factory, api_headers, base_url_network, api_helpers):
+    @allure.title("NW48: 공인 IP 전체 시나리오 검증")
+    def test_NW048_public_ip_nic_integration(self, resource_factory, api_headers, base_url_network, api_helpers):
         public_ip = resource_factory(f"{base_url_network}/public_ip", self.get_public_ip_payload())
         
         # [수정] NIC 생성 시 필수 필드 추가
@@ -781,8 +785,8 @@ class TestPublicIpCRUD:
             requests.patch(url, headers=api_headers, json={"attached_network_interface_id": None})
 
     @allure.story("만료된 토큰")
-    @allure.title("NW50: 만료된 토큰으로 접근 시 에러 확인")
-    def test_NW050_ERR_access_with_expired_token(self, base_url_network):
+    @allure.title("NW49: 만료된 토큰으로 접근 시 에러 확인")
+    def test_NW049_ERR_access_with_expired_token(self, base_url_network):
         expired_headers = {"Authorization": "Bearer expired_token", "Content-Type": "application/json"}
         response = requests.get(f"{base_url_network}/public_ip", headers=expired_headers)
         assert response.status_code in [401, 403], f"⛔ 예상 코드 401/403, 실제: {response.status_code}"
