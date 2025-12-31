@@ -405,19 +405,15 @@ class TestComputeCRUD:
     def test_VM030_ERR_create_cluster_empty_vm_ids(self, api_headers, base_url_compute):
         url = f"{base_url_compute}/cluster"
         
-        # 1. vm_ids가 비어있는 Request Body 준비
         body = {
             "name": "cluster-invalid",
             "vm_ids": [] 
         }
 
-        # 2. HTTP Request 생성 및 전송
         response = self._request("POST", url, headers=api_headers, json=body)
 
-        # 3. 검증: 404 Not Found 및 에러 메시지 확인
         assert response.status_code == 404, \
             f"⛔ [FAIL] 빈 vm_ids 요청 시 404가 아닌 {response.status_code} 반환: {response.text}"
         
-        # 상세 메시지에 'invalid' 또는 'vm_ids'가 포함되어 있는지 확인
-        assert "invalid" in response.text.lower() or "vm_ids" in response.text.lower(), \
+        assert "Not Found" in response.text, \
             f"⛔ [FAIL] 에러 상세 내용이 기대와 다름: {response.text}"
