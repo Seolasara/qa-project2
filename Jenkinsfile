@@ -1,11 +1,6 @@
 pipeline {
     agent any
     
-    tools {
-        // Jenkins에 설정된 Python 사용 (Jenkins Global Tool Configuration에서 설정 필요)
-        // 또는 아래 environment에서 직접 경로 지정
-    }
-    
     environment {
         // Python 가상환경 경로
         VENV_PATH = "${WORKSPACE}/venv"
