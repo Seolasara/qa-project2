@@ -184,4 +184,3 @@ def pytest_runtest_makereport(item, call):
         driver = item.funcargs.get("driver")
         if driver:
             attach_screenshot(driver, name=item.name)
-
