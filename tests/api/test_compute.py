@@ -8,6 +8,7 @@ INSTANCE_TYPE_CANDIDATES = [
     "320909e3-44ce-4018-8b55-7e837cd84a15",
     "332d9f31-595c-4d0f-aebd-4aaf49c345a5",  # C-16
     "830e2041-d477-4058-a65c-386a93ead237",  # M-2
+    "c0d04e23-c5bb-4625-8906-13dc2644981c"
 ]
 
 class TestComputeCRUD:
