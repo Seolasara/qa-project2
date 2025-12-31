@@ -1,11 +1,19 @@
 pipeline {
     agent any
     
+    tools {
+        // Jenkins에 설정된 Python 사용 (Jenkins Global Tool Configuration에서 설정 필요)
+        // 또는 아래 environment에서 직접 경로 지정
+    }
+    
     environment {
         // Python 가상환경 경로
         VENV_PATH = "${WORKSPACE}/venv"
         // 테스트 결과 경로
         TEST_RESULTS = "${WORKSPACE}/reports"
+        // Python 실행 파일 경로 (Windows 시스템에 설치된 Python 경로로 수정 필요)
+        // 예: PYTHON_HOME = 'C:\\Python311' 또는 'C:\\Users\\JMH\\AppData\\Local\\Programs\\Python\\Python311'
+        PYTHON_CMD = 'py -3'  // Windows Python Launcher 사용
     }
     
     stages {
@@ -28,11 +36,53 @@ pipeline {
                             pip install -r requirements.txt
                         '''
                     } else {
+                        // Windows에서 Python 찾기 및 가상환경 생성
                         bat '''
-                            python -m venv venv
-                            call venv\\Scripts\\activate.bat
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
+                            @echo off
+                            echo 🔍 Python 설치 확인 중...
+                            
+                            REM Python Launcher 사용 시도
+                            where py >nul 2>&1
+                            if %ERRORLEVEL% EQU 0 (
+                                echo ✓ Python Launcher 발견
+                                py -3 --version
+                                py -3 -m venv venv
+                                call venv\\Scripts\\activate.bat
+                                python -m pip install --upgrade pip
+                                pip install -r requirements.txt
+                                exit /b 0
+                            )
+                            
+                            REM python 명령어 사용 시도
+                            where python >nul 2>&1
+                            if %ERRORLEVEL% EQU 0 (
+                                echo ✓ python 명령어 발견
+                                python --version
+                                python -m venv venv
+                                call venv\\Scripts\\activate.bat
+                                python -m pip install --upgrade pip
+                                pip install -r requirements.txt
+                                exit /b 0
+                            )
+                            
+                            REM python3 명령어 사용 시도
+                            where python3 >nul 2>&1
+                            if %ERRORLEVEL% EQU 0 (
+                                echo ✓ python3 명령어 발견
+                                python3 --version
+                                python3 -m venv venv
+                                call venv\\Scripts\\activate.bat
+                                python -m pip install --upgrade pip
+                                pip install -r requirements.txt
+                                exit /b 0
+                            )
+                            
+                            echo ❌ Python을 찾을 수 없습니다!
+                            echo 다음 중 하나를 수행하세요:
+                            echo 1. Python 설치: https://www.python.org/downloads/
+                            echo 2. Python을 시스템 PATH에 추가
+                            echo 3. Jenkins에서 Python Tool 설정
+                            exit /b 1
                         '''
                     }
                 }
