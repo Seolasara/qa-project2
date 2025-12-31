@@ -99,7 +99,7 @@ pipeline {
                             echo.
                             echo ❌ 정상 작동하는 Python을 찾을 수 없습니다!
                             echo.
-                            echo 📌 문제: C:\Python314\python.exe가 손상되어 있습니다.
+                            echo 📌 문제: C:\\Python314\\python.exe가 손상되어 있습니다.
                             echo.
                             echo 해결 방법:
                             echo 1. 안정적인 Python 3.12 설치:
@@ -110,7 +110,7 @@ pipeline {
                             echo    "Add Python to PATH" 옵션 선택!
                             echo.
                             echo 3. 손상된 Python 3.14 제거 (선택):
-                            echo    C:\Python314 폴더 삭제
+                            echo    C:\\Python314 폴더 삭제
                             echo.
                             exit /b 1
                         '''
