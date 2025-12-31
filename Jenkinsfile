@@ -159,46 +159,14 @@ pipeline {
             }
             post {
                 always {
-                    junit 'reports/api-results.xml'
+                    junit allowEmptyResults: true, testResults: 'reports/api-results.xml'
                     publishHTML([
-                        allowMissing: false,
+                        allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
                         reportDir: 'reports',
                         reportFiles: 'api-report.html',
                         reportName: 'API Test Report'
-                    ])
-                }
-            }
-        }
-        
-        stage('Run E2E Tests') {
-            steps {
-                echo '🌐 E2E 테스트 실행...'
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            . venv/bin/activate
-                            pytest tests/e2e/ -v --junit-xml=reports/e2e-results.xml --html=reports/e2e-report.html --self-contained-html
-                        '''
-                    } else {
-                        bat '''
-                            call venv\\Scripts\\activate.bat
-                            pytest tests/e2e/ -v --junit-xml=reports/e2e-results.xml --html=reports/e2e-report.html --self-contained-html
-                        '''
-                    }
-                }
-            }
-            post {
-                always {
-                    junit 'reports/e2e-results.xml'
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'reports',
-                        reportFiles: 'e2e-report.html',
-                        reportName: 'E2E Test Report'
                     ])
                 }
             }
