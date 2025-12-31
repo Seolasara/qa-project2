@@ -24,12 +24,43 @@ pipeline {
             steps {
                 echo '🛠️ Python 가상환경 설정...'
                 script {
-                    // Jenkins Secret File에서 .env 파일 복사
-                    withCredentials([file(credentialsId: 'bug-thresher-env-file', variable: 'ENV_FILE')]) {
+                    // .env 파일 생성 (Credential이 있으면 사용, 없으면 기본값 사용)
+                    try {
+                        withCredentials([file(credentialsId: 'bug-thresher-env-file', variable: 'ENV_FILE')]) {
+                            if (isUnix()) {
+                                sh 'cp $ENV_FILE .env'
+                            } else {
+                                bat 'copy %ENV_FILE% .env'
+                            }
+                            echo '✓ Jenkins Credential에서 .env 파일을 가져왔습니다'
+                        }
+                    } catch (Exception e) {
+                        echo '⚠️  Jenkins Credential이 없습니다. 기본 .env 파일을 생성합니다.'
                         if (isUnix()) {
-                            sh 'cp $ENV_FILE .env'
+                            sh '''
+                                cat > .env << 'EOF'
+LOGIN_ID=qa2team02@elicer.com
+PASSWORD=qa2team02!!
+
+# API Base URLs
+BASE_URL_BLOCK_STORAGE=https://portal.gov.elice.cloud/api/user/resource/storage/block_storage
+BASE_URL_NETWORK=https://portal.gov.elice.cloud/api/user/resource/network
+BASE_URL_OBJECT_STORAGE=https://portal.gov.elice.cloud/api/user/resource/storage/object_storage
+EOF
+                            '''
                         } else {
-                            bat 'copy %ENV_FILE% .env'
+                            bat '''
+                                @echo off
+                                (
+                                    echo LOGIN_ID=qa2team02@elicer.com
+                                    echo PASSWORD=qa2team02!!
+                                    echo.
+                                    echo # API Base URLs
+                                    echo BASE_URL_BLOCK_STORAGE=https://portal.gov.elice.cloud/api/user/resource/storage/block_storage
+                                    echo BASE_URL_NETWORK=https://portal.gov.elice.cloud/api/user/resource/network
+                                    echo BASE_URL_OBJECT_STORAGE=https://portal.gov.elice.cloud/api/user/resource/storage/object_storage
+                                ) > .env
+                            '''
                         }
                     }
                     
