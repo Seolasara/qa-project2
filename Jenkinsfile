@@ -31,6 +31,7 @@ pipeline {
                     } else {
                         bat '''
                             @echo off
+                            setlocal enabledelayedexpansion
                             echo 🔍 Python 설치 확인 중...
                             
                             REM Python Launcher 사용 시도 (가장 안전)
@@ -69,6 +70,8 @@ pipeline {
                             echo 🔍 일반 설치 경로에서 Python 검색 중...
                             
                             for %%P in (
+                                "C:\\Users\\JMH\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
+                                "%LOCALAPPDATA%\\Programs\\Python\\Python314\\python.exe"
                                 "%LOCALAPPDATA%\\Programs\\Python\\Python312\\python.exe"
                                 "%LOCALAPPDATA%\\Programs\\Python\\Python311\\python.exe"
                                 "C:\\Python312\\python.exe"
