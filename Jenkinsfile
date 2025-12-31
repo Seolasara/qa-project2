@@ -140,7 +140,7 @@ pipeline {
                     } else {
                         bat '''
                             @echo off
-                            if not exist allure\bin\allure.bat (
+                            if not exist allure\\bin\\allure.bat (
                                 echo ⬇️ Allure Commandline 다운로드 중...
                                 powershell -Command "Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.24.1/allure-2.24.1.zip' -OutFile 'allure.zip'"
                                 powershell -Command "Expand-Archive -Path 'allure.zip' -DestinationPath '.' -Force"
@@ -148,7 +148,7 @@ pipeline {
                                 del allure.zip
                             )
                             echo ✅ Allure 설치 완료
-                            allure\bin\allure.bat --version
+                            allure\\bin\\allure.bat --version
                         '''
                     }
                 }
