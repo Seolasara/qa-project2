@@ -6,6 +6,9 @@ pipeline {
         REPORTS_DIR = "${WORKSPACE}/reports"
         ALLURE_DIR = "${WORKSPACE}/reports/allure"
         ALLURE_HOME = "${WORKSPACE}/allure"
+        LOGIN_INFO = credentials('portal_login_credentials') 
+        LOGIN_ID = "${env.LOGIN_INFO_USR}"
+        LOGIN_PW = "${env.LOGIN_INFO_PSW}"
         // Python UTF-8 출력 강제 설정 (Windows 인코딩 문제 해결)
         PYTHONIOENCODING = 'utf-8'
         PYTHONUTF8 = '1'
