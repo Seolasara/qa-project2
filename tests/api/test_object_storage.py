@@ -20,7 +20,7 @@ class TestBucketCRUD:
         assert new_bucket["id"] is not None
 
 
-    @allure.story("예외케이스")
+    @allure.story("예외 케이스")
         # 동일 이름 버킷 재생성(예외)
     def test_OS002_post_duplicate_bucket(self, api_headers, existing_bucket, base_url_object_storage):
         bucket_name = existing_bucket["name"]
