@@ -2,14 +2,20 @@ pipeline {
     agent any
 
     environment {
-        VENV_PATH = "${WORKSPACE}/venv"
+       VENV_PATH = "${WORKSPACE}/venv"
         REPORTS_DIR = "${WORKSPACE}/reports"
         ALLURE_DIR = "${WORKSPACE}/reports/allure"
         ALLURE_HOME = "${WORKSPACE}/allure"
+        
+        // 🔑 Credentials 불러오기
         LOGIN_INFO = credentials('portal_login_credentials') 
+        
+        // 🚨 중요: conftest.py의 os.getenv("PASSWORD")와 이름을 일치시켜야 합니다.
         LOGIN_ID = "${env.LOGIN_INFO_USR}"
         LOGIN_PW = "${env.LOGIN_INFO_PSW}"
-        // Python UTF-8 출력 강제 설정 (Windows 인코딩 문제 해결)
+        PASSWORD = "${env.LOGIN_INFO_PSW}"  // <--- 이 줄이 반드시 있어야 에러가 해결됩니다.
+        
+        // Python UTF-8 설정
         PYTHONIOENCODING = 'utf-8'
         PYTHONUTF8 = '1'
     }
