@@ -564,17 +564,6 @@ class TestPublicIpCRUD:
             assert isinstance(res_data, list), f"⛔ 응답이 리스트 형식이 아님: {type(res_data)}"
             logger.info(f"✅ 조회된 공인 IP 개수: {len(res_data)}개")
 
-    def test_NW041_check_created_public_ip_in_list(self, resource_factory, api_headers, base_url_network):
-        payload = self.get_public_ip_payload()
-        created_ip = resource_factory(f"{base_url_network}/public_ip", payload)
-        target_id = created_ip['id']
-
-        with allure.step("전체 목록에서 생성한 ID 검색"):
-            response = requests.get(f"{base_url_network}/public_ip", headers=api_headers)
-            ip_list = response.json()
-            found = any(ip['id'] == target_id for ip in ip_list)
-            assert found, f"⛔ 생성된 공인 IP {target_id}가 목록에 없습니다."
-            logger.success(f"✅ 목록 노출 확인 완료")
 
     @allure.story("예외 케이스: 중복 이름으로 공인 IP 생성 시도 시 200 확인")
     def test_NW039_ERR_duplicate_public_ip_create_fail(self, resource_factory, api_headers, base_url_network):
@@ -594,6 +583,18 @@ class TestPublicIpCRUD:
         payload = {"zone_id": "0a89d6fa-8588-4994-a6d6-a7c3dc5d5ad0"} # name 누락
         response = requests.post(f"{base_url_network}/public_ip", headers=api_headers, json=payload)
         assert response.status_code == 422, f"⛔ 예상 코드 422, 실제: {response.status_code}"
+
+    def test_NW041_check_created_public_ip_in_list(self, resource_factory, api_headers, base_url_network):
+        payload = self.get_public_ip_payload()
+        created_ip = resource_factory(f"{base_url_network}/public_ip", payload)
+        target_id = created_ip['id']
+
+        with allure.step("전체 목록에서 생성한 ID 검색"):
+            response = requests.get(f"{base_url_network}/public_ip", headers=api_headers)
+            ip_list = response.json()
+            found = any(ip['id'] == target_id for ip in ip_list)
+            assert found, f"⛔ 생성된 공인 IP {target_id}가 목록에 없습니다."
+            logger.success(f"✅ 목록 노출 확인 완료")
 
     def test_NW042_public_ip_patch(self, resource_factory, api_headers, base_url_network):
         """공인 IP의 태그를 수정하고 변경 사항이 반영되는지 확인"""
