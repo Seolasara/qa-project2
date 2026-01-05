@@ -17,9 +17,7 @@ class TestComputeCRUD:
     deleted_vm_verified = False
     
     # VM-001 생성, 수정, 삭제 (resource_factory 적용)
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-001] VM 생성/수정/삭제")
+    @allure.story("예외 케이스")
     
     def test_VM_create_rename_delete(self, api_headers, base_url_compute):
 
@@ -55,7 +53,7 @@ class TestComputeCRUD:
         assert vm_one["id"] == vm_id
         assert vm_one["name"] == vm_name
         assert vm_one["zone_id"] is not None
-
+        
         # 2) VM 이름 수정 (뒤에 test 추가)
         patch_url = f"{base_url_compute}/virtual_machine/{vm_id}"
         new_name = f"{vm_name} test"
@@ -77,10 +75,8 @@ class TestComputeCRUD:
         assert r_delete.status_code == 200, f"VM 삭제 실패: {r_delete.status_code}: {r_delete.text}"
     
     # VM-002 다른 인스턴스 타입으로 VM 생성       
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-002] 다른 인스턴스 타입으로 VM 생성")
-
+    @allure.story("예외 케이스")
+    @allure.story("xfail")
     def test_VM002_create_vm_different_instance_type(self, api_headers, resource_factory, base_url_compute):
         url = f"{base_url_compute}/virtual_machine"
 
@@ -102,9 +98,9 @@ class TestComputeCRUD:
             pytest.xfail(f"환경 제한: {e}")
             
     # VM-003 OS 이미지 지정 생성 (Blocked)        
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-003] OS 이미지 지정 생성 (Blocked)")
+    @allure.story("예외 케이스")
+    @allure.story("xfail")
+    @allure.story("skip")
     @pytest.mark.skip(
         reason="Blocked: VM create API payload/response에 OS image 식별값(image_id/os_image_id 등) 미노출로 선택 OS 적용 여부 판정 불가"
     )
@@ -113,9 +109,8 @@ class TestComputeCRUD:
         pass
 
     # VM-004 초기화 스크립트 포함 VM 생성
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-004] 초기화 스크립트 포함 VM 생성")
+    @allure.story("예외 케이스")
+    @allure.story("xfail")
     
     def test_VM004_create_vm_with_init_script(self, api_headers, resource_factory, base_url_compute):
         url = f"{base_url_compute}/virtual_machine"
@@ -139,9 +134,9 @@ class TestComputeCRUD:
             pytest.xfail(f"quota 또는 환경 제한: {e}")
 
     # VM-005 DR 옵션 VM 생성
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-003] OS 이미지 지정 생성 (Blocked)")
+    @allure.story("예외 케이스")
+    @allure.story("xfail")
+    @allure.story("skip")
     @pytest.mark.skip(
         reason="Blocked: dr=true 요청 시 API가 zone_no_secondary_zone 반환. 해당 zone_id에 secondary zone 미구성으로 DR VM 생성 검증 불가."
     )
@@ -150,10 +145,6 @@ class TestComputeCRUD:
         pass
     
     # VM-006 VM 다건 조회
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine Allocation")
-    @allure.title("[VM-006] VM 다건 조회(Allocation)")
-
     def test_VM006_list_vm(self, api_headers, base_url_compute):
         url = f"{base_url_compute}/virtual_machine_allocation"
         r = self._request("GET", url, headers=api_headers)
@@ -162,10 +153,6 @@ class TestComputeCRUD:
         assert isinstance(r.json(), list)
 
     # VM-007 특정 상태 VM 목록 조회
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-007] VM 상태값 검증(allowed: idle/allocated)")
-
     def test_VM007_list_vm_by_status(self, api_headers, base_url_compute):
         url = f"{base_url_compute}/virtual_machine"
 
@@ -182,19 +169,11 @@ class TestComputeCRUD:
             assert it.get("status") in allowed_statuses, f"unexpected status: {it}"
     
     # VM-008 VM 목록 조회 (Search)
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-008] VM 목록 조회(Search)")
-
     def test_VM008_list_vm(self, api_headers, base_url_compute):
         vms = self._list_vms(api_headers, base_url_compute)
         assert isinstance(vms, list)
     
     # VM-009 VM 단건 조회 (machine_id 기반)
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-009] VM 단건 조회(machine_id 기반)")
-
     def test_VM009_get_vm_one(self, api_headers, base_url_compute):
         vm_id = self._ensure_vm_id(api_headers, base_url_compute)
         vm = self._get_vm_by_machine_id(api_headers, base_url_compute, vm_id)
@@ -202,10 +181,6 @@ class TestComputeCRUD:
         assert vm.get("machine_id") or vm.get("id")
 
     # VM-020
-    @allure.feature("Compute")
-    @allure.story("Dashboard")
-    @allure.title("[VM-020] VM 리소스 모니터링 대시보드 조회")
-    
     def test_VM020_GET_vm_resource_monitoring(self, api_headers, base_url_compute):
         """
         [VM020] VM 리소스 모니터링 대시보드 조회
@@ -223,14 +198,8 @@ class TestComputeCRUD:
         print(f"📊 응답 상태 코드: {response.status_code}")
 
         assert response.status_code == 200, f"⛔ 조회 실패! (상태 코드: {response.status_code})"
-        
-        print("✅ 대시보드용 VM 리소스 정보 조회 성공")    
     
     # VM-028
-    @allure.feature("Compute")
-    @allure.story("Virtual Machine")
-    @allure.title("[VM-028] 인스턴스 타입 후보군 fallback으로 VM 생성 + cleanup")
-
     def test_wait_vm_visible(self, api_headers, base_url_compute, vm_id, timeout_sec=60):
         end = time.time() + timeout_sec
         while time.time() < end:
@@ -240,10 +209,9 @@ class TestComputeCRUD:
         pytest.fail("VM not visible")
     
     # VM-030
-    @allure.feature("Compute")
-    @allure.story("Cluster")
-    @allure.title("[VM-030] Cluster 생성 오류: vm_ids 빈 배열")
-    
+    @allure.story("예외 케이스")
+    @allure.story("xfail")
+
     def test_VM030_ERR_create_cluster_empty_vm_ids(self, api_headers, base_url_compute):
         url = f"{base_url_compute}/cluster"
         
@@ -272,23 +240,6 @@ class TestComputeCRUD:
             except Exception:
                 pass
         return r
-
-    # def _create_vm_with_instance_fallback(
-    #     self, api_headers, url, body_base, candidates, max_retry_per_type=1
-    # ):
-    #     last_r = None
-
-    #     for it in candidates:
-    #         payload = dict(body_base)
-    #         payload["instance_type_id"] = it
-
-    #         r = self._request("POST", url, headers=api_headers, json=payload)
-    #         last_r = r
-
-    #         if r.status_code in (200, 201):
-    #             return r
-
-    #     return last_r
 
     def _list_vms(self, api_headers, base_url_compute):
         r = self._request(
