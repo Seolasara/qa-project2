@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from src.utils.api_util import wait_for_status  # 수정된 유틸 함수 임포트
 from src.utils.allure_helper import attach_screenshot
 from dotenv import load_dotenv
+from loguru import logger
 
 load_dotenv()
 
@@ -113,6 +114,10 @@ def resource_factory(api_headers):
             try:
                 delete_resource(resource["url"], api_headers, resource["id"])
             except Exception as e:
+                if hasattr(e, 'response') and e.response.status_code == 404:
+                    continue
+                logger.exception(f"Teardown 실패: 리소스 ID {resource['id']} (이름: {resource['name']}) 삭제 중 에러 발생")
+                # pass를 유지하여 다음 리소스 삭제 시도에 영향 주지 않음
                 pass
 
 def create_resource(url, headers, payload):
